@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: thermo-api
+  namespace: thermo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: thermo-api
+  template:
+    metadata:
+      labels:
+        app: thermo-api
+    spec:
+      containers:
+        - name: thermo-api
+          image: ghcr.io/proky7/thermo-api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: thermo-api-secret  # ← ze secret.enc.yaml
+          env:
+            # Nečitlivé hodnoty přímo zde
+            - name: DB_HOST
+              value: "192.168.5.66"       # Synology IP
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "thermo"
+            - name: DB_USER
+              value: "thermo"
+            - name: INFLUX_URL
+              value: "http://influxdb.monitoring.svc.cluster.local:8086"
+            - name: INFLUX_ORG
+              value: "homelab"
+            - name: INFLUX_BUCKET
+              value: "temperatures"
+            - name: LOG_LEVEL
+              value: "INFO"

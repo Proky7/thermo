@@ -1,0 +1,3 @@
+creation_rules:
+  - path_regex: k8s/secret\.enc\.yaml
+    age: age17mu4gj9g8yjl68s9u3gjrhmk8s4xlv6kdc6xzhtv0x7px0chuv7smu5n36
