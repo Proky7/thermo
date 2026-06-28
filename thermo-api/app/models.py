@@ -17,7 +17,7 @@ class Unit(Base):
 class Sensor(Base):
     __tablename__ = "thermo_sensors"
     id         = Column(Integer, primary_key=True)
-    unit_id    = Column(Integer, ForeignKey("units.id"), nullable=False)
+    unit_id    = Column(Integer, ForeignKey("thermo_units.id"), nullable=False)
     rom_id     = Column(String(32), nullable=False)
     name       = Column(String(64))
     last_seen  = Column(DateTime)
@@ -27,7 +27,7 @@ class Sensor(Base):
 class Log(Base):
     __tablename__ = "thermo_logs"
     id         = Column(Integer, primary_key=True)
-    unit_id    = Column(Integer, ForeignKey("units.id"), nullable=True)
+    unit_id    = Column(Integer, ForeignKey("thermo_units.id"), nullable=True)
     level      = Column(Enum("DEBUG","INFO","WARN","ERROR","CRITICAL"))
     message    = Column(Text)
     ts         = Column(DateTime, nullable=False)
