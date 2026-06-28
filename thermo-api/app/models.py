@@ -5,7 +5,7 @@ from datetime import datetime
 Base = declarative_base()
 
 class Unit(Base):
-    __tablename__ = "units"
+    __tablename__ = "thermo_units"
     id         = Column(Integer, primary_key=True)
     mac        = Column(String(17), unique=True, nullable=False)
     name       = Column(String(64))
@@ -15,7 +15,7 @@ class Unit(Base):
     sensors    = relationship("Sensor", back_populates="unit")
 
 class Sensor(Base):
-    __tablename__ = "sensors"
+    __tablename__ = "thermo_sensors"
     id         = Column(Integer, primary_key=True)
     unit_id    = Column(Integer, ForeignKey("units.id"), nullable=False)
     rom_id     = Column(String(32), nullable=False)
@@ -25,7 +25,7 @@ class Sensor(Base):
     unit       = relationship("Unit", back_populates="sensors")
 
 class Log(Base):
-    __tablename__ = "logs"
+    __tablename__ = "thermo_logs"
     id         = Column(Integer, primary_key=True)
     unit_id    = Column(Integer, ForeignKey("units.id"), nullable=True)
     level      = Column(Enum("DEBUG","INFO","WARN","ERROR","CRITICAL"))
