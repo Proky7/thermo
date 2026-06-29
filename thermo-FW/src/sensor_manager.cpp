@@ -14,6 +14,10 @@ static int               sensorCount = 0;
 
 static MeasurementBuffer measureBuffer;
 
+// Přidej proměnnou pro periodický scan (např. na začátek souboru k ostatním static proměnným)
+static uint32_t lastScanMs = 0;
+#define SENSOR_SCAN_INTERVAL_MS 30000 // Každých 30 vteřin zkontroluje sběrnici
+
 // ── Async stavový automat ─────────────────────────────────
 enum MeasureState {
     MEASURE_IDLE,        // čekání na interval
@@ -46,6 +50,52 @@ static int findSensor(const char* romId) {
         if (strcmp(sensors[i].romId, romId) == 0) return i;
     }
     return -1;
+}
+
+// Nová pomocná funkce pro bezpečný rescan za běhu
+static void scanBusForNewSensors() {
+    uint8_t rom[8];
+    oneWire.reset_search();
+    dallas.begin(); // Inicializuje OneWire stav v knihovně Dallas
+
+    while (oneWire.search(rom)) {
+        if (OneWire::crc8(rom, 7) != rom[7]) {
+            continue;
+        }
+
+        char romStr[ROM_ID_LEN];
+        romToString(rom, romStr);
+
+        // Klíčový krok: Podíváme se, jestli už tento senzor v poli máme
+        if (findSensor(romStr) >= 0) {
+            continue; // Už ho známe, přeskoč ho
+        }
+
+        // Našli jsme ÚPLNĚ NOVÝ senzor za běhu!
+        if (sensorCount >= SENSOR_MAX_COUNT) {
+            LOG(LOG_WARN, "SENSOR", "New sensor found, but SENSOR_MAX_COUNT reached");
+            break;
+        }
+
+        // Přidáme ho na konec pole
+        strncpy(sensors[sensorCount].romId, romStr, ROM_ID_LEN - 1);
+        sensors[sensorCount].valid         = false;
+        sensors[sensorCount].missingCount = 0;
+        memset(sensors[sensorCount].name, 0, sizeof(sensors[sensorCount].name));
+        
+        LOG(LOG_INFO, "SENSOR", "Hot-plugged new sensor found: %s", romStr);
+
+        // Hned se pokusíme načíst jeho jméno z NVS, pokud bylo někdy uloženo
+        prefs.begin(NVS_SENSORS_NS, true);
+        String name = prefs.getString(romStr, "");
+        if (name.length() > 0) {
+            strncpy(sensors[sensorCount].name, name.c_str(), sizeof(sensors[sensorCount].name) - 1);
+            LOG(LOG_DEBUG, "SENSOR", "Loaded hot-plugged name from NVS: %s", sensors[sensorCount].name);
+        }
+        prefs.end();
+
+        sensorCount++; // Bezpečně navýšíme celkový počet
+    }
 }
 
 // ── NVS — ukládání názvů ─────────────────────────────────
@@ -103,6 +153,8 @@ void sensorInit() {
 
     LOG(LOG_INFO, "SENSOR", "Total sensors: %d", sensorCount);
     loadNamesFromNVS();
+
+    lastScanMs = millis();
 }
 
 // ── Čtení výsledků (voláno po 750ms) ─────────────────────
@@ -163,6 +215,12 @@ static void readTemperatures() {
 
 void sensorLoop() {
     uint32_t now = millis();
+
+    // Pokud jsme ve stavu IDLE, můžeme si dovolit jednou za 30s bleskově projet sběrnici
+    if (measureState == MEASURE_IDLE && (now - lastScanMs >= SENSOR_SCAN_INTERVAL_MS)) {
+        lastScanMs = now;
+        scanBusForNewSensors();
+    }
 
     switch (measureState) {
         case MEASURE_IDLE:

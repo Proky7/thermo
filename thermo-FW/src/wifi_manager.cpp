@@ -3,19 +3,30 @@
 #include "logger.h"
 #include <WiFi.h>
 #include <Preferences.h>
+#include <DNSServer.h>
 
 static Preferences prefs;
 static String      staSSID     = "";
 static String      staPassword = "";
 static bool        connected   = false;
 static uint32_t    lastRetryMs = 0;
+static DNSServer dns;
 
 // ── AP ───────────────────────────────────────────────────
 
 static void startAP() {
-    String apSSID = String(AP_SSID_PREFIX) + unitMac.substring(9); // MAC suffix
+    // 1. Nastavení IP adresy pro AP
+    IPAddress apIP(192, 168, 4, 1);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+
+    // 2. Start AP
+    String apSSID = String(AP_SSID_PREFIX) + unitMac.substring(9);
     WiFi.softAP(apSSID.c_str(), AP_PASSWORD);
-    LOG(LOG_INFO, "WIFI", "AP started: %s", apSSID.c_str());
+    
+    // 3. Start DNS serveru (přesměruje cokoli "*" na naše ESP)
+    dns.start(53, "*", apIP);
+
+    LOG(LOG_INFO, "WIFI", "AP started: %s, IP: 192.168.4.1", apSSID.c_str());
 }
 
 // ── NVS ──────────────────────────────────────────────────
@@ -73,6 +84,8 @@ void wifiInit() {
 // ── Loop ─────────────────────────────────────────────────
 
 void wifiLoop() {
+    dns.processNextRequest();
+    
     bool nowConnected = (WiFi.status() == WL_CONNECTED);
 
     if (nowConnected && !connected) {

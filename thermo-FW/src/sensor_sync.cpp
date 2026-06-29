@@ -6,6 +6,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include "wifi_manager.h"
 
 static uint32_t lastSyncMs    = 0;
 static bool     syncRequested = false;

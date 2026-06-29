@@ -16,8 +16,8 @@
 // ── SENSOR ───────────────────────────────────────────────
 #define SENSOR_INTERVAL_MS       10000  // měření každých 10s
 #define SENSOR_MISSING_WARN      5      // po 5 chybách → WARN
-#define SENSOR_BUFFER_SIZE       50     // buffer při výpadku API
-#define SENSOR_MAX_COUNT         32  // max senzorů na jednom ESP
+#define SENSOR_BUFFER_SIZE       10     // buffer při výpadku API
+#define SENSOR_MAX_COUNT         10  // max senzorů na jednom ESP
 
 // ── API ──────────────────────────────────────────────────
 #define API_TIMEOUT_MS           5000

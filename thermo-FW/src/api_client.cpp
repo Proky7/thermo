@@ -5,6 +5,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include "wifi_manager.h"
 
 static uint32_t lastSendMs  = 0;
 static uint32_t lastLogMs   = 0;

@@ -1,4 +1,5 @@
 #pragma once
+#include "config.h"
 #include <Arduino.h>
 
 #define ROM_ID_LEN 17  // "28FF1234ABCD0000" + null

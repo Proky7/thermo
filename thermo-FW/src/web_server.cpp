@@ -207,3 +207,31 @@ void webServerInit() {
     server.on("/api/logs",    HTTP_GET,  handleLogs);
 
     server.on("/api/config",  HTTP_POST,
+        [](AsyncWebServerRequest* req){},
+        nullptr, handleConfigPost);
+
+    server.on("/api/wifi",    HTTP_POST,
+        [](AsyncWebServerRequest* req){},
+        nullptr, handleWifi);
+
+    server.on("/api/sensors", HTTP_POST,
+        [](AsyncWebServerRequest* req){},
+        nullptr, handleSensorsPost);
+
+    // server.onNotFound([](AsyncWebServerRequest* req) {
+    //     req->send(404, "application/json", "{\"error\":\"Not found\"}");
+    // });
+    server.onNotFound([](AsyncWebServerRequest* req) {
+    // Pokud mobil zkouší ověřit internet, podstrčíme mu naše Web UI
+    extern const char* getWebUI();
+    req->send(200, "text/html", getWebUI());
+});
+
+    server.begin();
+    LOG(LOG_INFO, "WEB", "Web server started on port 80");
+}
+
+void webServerLoop() {
+    // AsyncWebServer nepotřebuje volání v loop
+    // ale zde můžeme přidat budoucí logiku
+}
