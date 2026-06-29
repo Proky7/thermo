@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: thermo-api
   namespace: thermo
+  annotations:
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
 spec:
   replicas: 1
   selector:
@@ -38,6 +40,11 @@ spec:
               value: "HomeSys"
             - name: INFLUX_BUCKET
               value: "teploty"
+            - name: INFLUX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: influx-thermo-token
+                  key: token
             - name: LOG_LEVEL
               value: "INFO"
           livenessProbe:
