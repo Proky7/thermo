@@ -9,8 +9,13 @@
 #define DEFAULT_API_TOKEN   "NahodnyApiKlic159753"
 
 // ── PINY ─────────────────────────────────────────────────
-#define PIN_ONEWIRE         4       // DS18B20 data (D2 na D1 Mini)
-#define PIN_DEBUG_ENABLE    14      // zkratovat na GND = DEBUG (D5 na D1 Mini)
+// D2 = GPIO4, D5 = GPIO14, D6 = GPIO12, D7 = GPIO13
+#define PIN_ONEWIRE         4   // D2
+#define PIN_DEBUG_ENABLE    14  // D5
+
+// Pro budoucí použití — level konverter
+#define PIN_LEVEL_RX        12  // D6
+#define PIN_LEVEL_TX        13  // D7
 
 // ── WiFi AP ──────────────────────────────────────────────
 #define AP_SSID_PREFIX      "THERMO-"   // + MAC suffix

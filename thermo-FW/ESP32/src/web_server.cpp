@@ -7,6 +7,7 @@
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include <Preferences.h>
+#include "api_client.h"
 
 static AsyncWebServer server(80);
 
@@ -144,6 +145,13 @@ static void handleSensorsPost(AsyncWebServerRequest* req,
     }
 
     sensorSetName(romId, name);
+    
+     // Pošli jméno přímo na API — neček na sync
+    ApiResult result = apiAnnounceSensor(romId, name);
+    if (result != API_OK) {
+        LOG(LOG_WARN, "WEB", "Failed to send sensor name to API, will retry on sync");
+    }
+
     sensorSyncNow();  // okamžitá synchronizace s API
 
     LOG(LOG_INFO, "WEB", "Sensor %s named: %s", romId, name);
