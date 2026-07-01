@@ -26,4 +26,15 @@ void configSave(const char* name, const char* url, const char* token) {
     unitName = String(name);
     apiUrl   = String(url);
     apiToken = String(token);
+
+    // A okamžitě aktualizuj WiFi
+    String apSSID = String(AP_SSID_PREFIX) + unitMac.substring(9);
+    #ifdef ESP8266
+        WiFi.hostname(unitName.c_str());
+        WiFi.softAP(apSSID.c_str());
+    #else
+        WiFi.setHostname(unitName.c_str());
+        WiFi.softAP(apSSID.c_str(), AP_PASSWORD);
+    #endif
+
 }
