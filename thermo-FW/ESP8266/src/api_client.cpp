@@ -5,6 +5,7 @@
 #include <WiFiClientSecureBearSSL.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
+#include "wifi_manager.h"
 
 static uint32_t lastLogMs = 0;
 

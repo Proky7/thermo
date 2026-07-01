@@ -1,5 +1,6 @@
 #include "config.h"
 #include <Preferences.h>
+#include <WiFi.h>
 
 String unitName  = "";
 String unitMac   = "";

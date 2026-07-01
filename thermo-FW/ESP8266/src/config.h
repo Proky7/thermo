@@ -34,7 +34,7 @@
 #define SENSOR_SYNC_INTERVAL_MS  300000  // 5 minut
 
 // ── LOGGER ───────────────────────────────────────────────
-#define LOG_BUFFER_SIZE     10      // posledních 10 WARN+
+#define LOG_BUFFER_SIZE     3      // posledních 10 WARN+
 #define LOG_SEND_INTERVAL_MS 60000  // odesílání logů každou minutu
 
 // ── LittleFS klíče ───────────────────────────────────────

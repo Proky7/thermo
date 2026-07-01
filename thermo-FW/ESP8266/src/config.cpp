@@ -2,6 +2,7 @@
 #include "logger.h"
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <ESP8266WiFi.h>
 
 String unitName  = "THERMO-8266";
 String unitMac   = "";

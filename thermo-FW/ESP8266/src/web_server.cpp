@@ -225,13 +225,9 @@ void webServerInit() {
         [](AsyncWebServerRequest* req){},
         nullptr, handleSensorsPost);
 
-    // server.onNotFound([](AsyncWebServerRequest* req) {
-    //     req->send(404, "application/json", "{\"error\":\"Not found\"}");
-    // });
     server.onNotFound([](AsyncWebServerRequest* req) {
-    // Pokud mobil zkouší ověřit internet, podstrčíme mu naše Web UI
-    extern const char* getWebUI();
-    req->send(200, "text/html", getWebUI());
+        req->send(404, "application/json", "{\"error\":\"Not found\"}");
+    });
 
     server.begin();
     LOG(LOG_INFO, "WEB", "Server started on port 80");
