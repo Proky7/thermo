@@ -5,7 +5,7 @@
 #define FW_VERSION          "0.1.0"
 
 // ── PINY ─────────────────────────────────────────────────
-#define PIN_ONEWIRE         4       // DS18B20 data
+#define PIN_ONEWIRE         17       // DS18B20 data
 #define PIN_DEBUG_ENABLE    33      // zkratovat na GND = DEBUG logy
 
 // ── WIFI ─────────────────────────────────────────────────
