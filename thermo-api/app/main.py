@@ -16,6 +16,7 @@ app.include_router(measurements.router, prefix="/api/v1")
 app.include_router(sensors.router,      prefix="/api/v1")
 app.include_router(logs.router,         prefix="/api/v1")
 
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
