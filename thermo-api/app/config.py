@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydactic import Field
 
 class Settings(BaseSettings):
     # MariaDB
@@ -12,7 +13,7 @@ class Settings(BaseSettings):
     influx_url: str = "http://influxdb-svc.default.svc.cluster.local:8086"
     influx_org: str = "HomeSys"
     influx_bucket: str = "teploty"
-    INFLUX_TOKEN: str = ""
+    influx_token: str = Field(validation_alias="INFLUX_TOKEN")
 
     # API
     api_token: str              # jednoduchý shared secret pro ESP
