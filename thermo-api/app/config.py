@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydactic import Field
+from pydantic import Field
 
 class Settings(BaseSettings):
     # MariaDB
