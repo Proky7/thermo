@@ -228,6 +228,15 @@ static const char WEB_UI[] PROGMEM = R"=====(
     <button class="btn btn-primary" onclick="saveWifi()">Připojit</button>
     <div id="wifi-msg" class="msg"></div>
   </div>
+
+  <div class="card">
+    <h2>Nastavení DEBUG</h2>
+    <div class="form-group">
+      <label>
+        <input type="checkbox" id="cfg-debug"> Zapnout DEBUG logy
+      </label>
+    </div>
+  </div>
 </div>
 
 <!-- SYSTÉM -->
@@ -374,6 +383,7 @@ async function loadConfig() {
   const d = await getJson('/api/config');
   document.getElementById('cfg-name').value = d.unit_name || '';
   document.getElementById('cfg-url').value  = d.api_url   || '';
+  document.getElementById('cfg-debug').checked = !!d.debug;
 }
 
 async function saveConfig() {
@@ -381,6 +391,7 @@ async function saveConfig() {
     unit_name: document.getElementById('cfg-name').value.trim(),
     api_url:   document.getElementById('cfg-url').value.trim(),
     api_token: document.getElementById('cfg-token').value.trim(),
+    debug: document.getElementById('cfg-debug').checked,
   };
   if (!data.unit_name) { showMsg('cfg-msg', false, 'Název je povinný'); return; }
   const r = await postJson('/api/config', data);

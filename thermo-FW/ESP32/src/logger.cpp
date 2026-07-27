@@ -6,8 +6,8 @@ static int      logCount    = 0;
 static int      logHead     = 0;  // kruhový buffer
 
 void logInit() {
-    pinMode(PIN_DEBUG_ENABLE, INPUT_PULLUP);
-    debugMode = (digitalRead(PIN_DEBUG_ENABLE) == LOW);
+    // pinMode(PIN_DEBUG_ENABLE, INPUT_PULLUP);
+    // debugMode = (digitalRead(PIN_DEBUG_ENABLE) == LOW);
     if (debugMode) {
         Serial.println("[LOGGER] Debug mode ON");
     }

@@ -39,6 +39,7 @@
 #define NVS_CFG_NAME      "name"
 #define NVS_CFG_API_URL   "api_url"
 #define NVS_CFG_API_TOKEN "api_token"
+#define NVS_CFG_DEBUG     "debug" // "0" nebo "1"
 
 // ── Globální proměnné (definice v config.cpp) ────────────
 extern String unitName;
@@ -48,4 +49,4 @@ extern String apiToken;
 extern bool   debugMode;
 
 void configLoad();
-void configSave(const char* name, const char* url, const char* token);
+void configSave(const char* name, const char* url, const char* token, bool dgb);

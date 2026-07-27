@@ -46,6 +46,7 @@ static void handleConfigGet(AsyncWebServerRequest* req) {
     JsonDocument doc;
     doc["unit_name"] = unitName;
     doc["api_url"]   = apiUrl;
+    doc["debug"]     = debugMode;
     // api_token záměrně nevracíme — bezpečnost
 
     String out;
@@ -68,11 +69,12 @@ static void handleConfigPost(AsyncWebServerRequest* req,
     const char* name  = doc["unit_name"] | unitName.c_str();
     const char* url   = doc["api_url"]   | apiUrl.c_str();
     const char* token = doc["api_token"] | apiToken.c_str();
+    bool dbg          = doc["debug"]     | debugMode;
 
-    configSave(name, url, token);
+    configSave(name, url, token, dbg);
     WiFi.setHostname(unitName.c_str());
 
-    LOG(LOG_INFO, "WEB", "Config updated: name=%s url=%s", name, url);
+    LOG(LOG_INFO, "WEB", "Config updated: name=%s url=%s debug=%s", name, url, dbg ? "true" : "false");
     req->send(200, "application/json", "{\"ok\":true}");
 }
 

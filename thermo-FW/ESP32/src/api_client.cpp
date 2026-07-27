@@ -17,6 +17,7 @@ static ApiResult httpPost(const char* endpoint, const String& body) {
 
     WiFiClientSecure client;
     client.setInsecure();  // TODO: přidat certifikát pro produkci
+    client.setTimeout(10);
 
     HTTPClient http;
     String url = apiUrl + endpoint;
@@ -25,7 +26,21 @@ static ApiResult httpPost(const char* endpoint, const String& body) {
     http.addHeader("X-Api-Token", apiToken);
     http.setTimeout(API_TIMEOUT_MS);
 
+    LOG(LOG_DEBUG, "API", "Odesílám na URL: %s", url.c_str());
+    LOG(LOG_DEBUG, "API", "Hlavičky: X-Api-Token: %s", apiToken.c_str());
+    
+
+    // LOG(LOG_INFO, "URL", "URL: %s", url.c_str());
+    // time_t now = time(nullptr);
+    // struct tm timeinfo;
+    // localtime_r(&now, &timeinfo);
+    
+    // LOG(LOG_INFO, "API", "Aktuální čas na ESP: %04d-%02d-%02d %02d:%02d:%02d",
+    //     timeinfo.tm_year + 1900, timeinfo.tm_min ? timeinfo.tm_mon + 1 : 1, timeinfo.tm_mday,
+    //     timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+
     int code = http.POST(body);
+    LOG(LOG_DEBUG, "API", "JSON tělo zprávy:\n%s", body.c_str());
     http.end();
 
     if (code == 200 || code == 201) return API_OK;

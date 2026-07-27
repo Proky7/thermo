@@ -14,20 +14,22 @@ void configLoad() {
     unitName  = prefs.getString(NVS_CFG_NAME,      "THERMO");
     apiUrl    = prefs.getString(NVS_CFG_API_URL,   "");
     apiToken  = prefs.getString(NVS_CFG_API_TOKEN, "");
+    debugMode = prefs.getBool(NVS_CFG_DEBUG, false);
     prefs.end();
 }
 
-void configSave(const char* name, const char* url, const char* token) {
+void configSave(const char* name, const char* url, const char* token, bool dbg) {
     Preferences prefs;
     prefs.begin(NVS_CFG_NS, false);
     prefs.putString(NVS_CFG_NAME,      name);
     prefs.putString(NVS_CFG_API_URL,   url);
     prefs.putString(NVS_CFG_API_TOKEN, token);
+    prefs.putBool(NVS_CFG_DEBUG, dbg);
     prefs.end();
     unitName = String(name);
     apiUrl   = String(url);
     apiToken = String(token);
-
+    debugMode = dbg;
     // A okamžitě aktualizuj WiFi
     String apSSID = String(AP_SSID_PREFIX) + unitMac.substring(9);
     #ifdef ESP8266

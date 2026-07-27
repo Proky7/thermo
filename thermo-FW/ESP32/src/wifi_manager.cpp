@@ -24,7 +24,7 @@ static void startAP() {
     WiFi.softAP(apSSID.c_str(), AP_PASSWORD);
     
     // 3. Start DNS serveru (přesměruje cokoli "*" na naše ESP)
-    dns.start(53, "*", apIP);
+    //dns.start(53, "*", apIP);
 
     LOG(LOG_INFO, "WIFI", "AP started: %s, IP: 192.168.4.1", apSSID.c_str());
 }
@@ -84,7 +84,7 @@ void wifiInit() {
 // ── Loop ─────────────────────────────────────────────────
 
 void wifiLoop() {
-    dns.processNextRequest();
+    //dns.processNextRequest();
     
     bool nowConnected = (WiFi.status() == WL_CONNECTED);
 
@@ -92,6 +92,12 @@ void wifiLoop() {
         connected = true;
         LOG(LOG_INFO, "WIFI", "Connected to %s, IP: %s",
             WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+        // --- SYNCHRONIZACE ČASU PRO HTTPS ---
+        configTime(3600, 3600, "pool.ntp.org", "time.google.com"); 
+        LOG(LOG_INFO, "WIFI", "NTP requested...");
+        // 3600 = SEC timezone offset (CET/CEST si to případně upraví, 
+        // nebo můžeš nechat 0, 0 a čas brát v UTC, pro HTTPS certifikáty stačí, 
+        // že rok a hodina odpovídají reálnému světu).
     }
 
     if (!nowConnected && connected) {
