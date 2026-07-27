@@ -20,7 +20,7 @@
 #define SENSOR_MAX_COUNT         10  // max senzorů na jednom ESP
 
 // ── API ──────────────────────────────────────────────────
-#define API_TIMEOUT_MS           5000
+#define API_TIMEOUT_MS           10000
 #define API_RETRY_INTERVAL_MS    30000  // retry po výpadku
 
 // ── SYNC názvů senzorů ───────────────────────────────────

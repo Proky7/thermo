@@ -5,6 +5,7 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <time.h>
 #include "wifi_manager.h"
 
 static uint32_t lastSendMs  = 0;
@@ -12,16 +13,35 @@ static uint32_t lastLogMs   = 0;
 
 // ── Pomocná funkce — HTTP POST ────────────────────────────
 
+static bool waitForTimeSync(uint32_t timeoutMs) {
+    uint32_t start = millis();
+    while (millis() - start < timeoutMs) {
+        time_t now = time(nullptr);
+        if (now > 1000000000) {
+            return true;
+        }
+        delay(250);
+    }
+    return false;
+}
+
 static ApiResult httpPost(const char* endpoint, const String& body) {
     if (!wifiIsConnected()) return API_ERR_WIFI;
 
+    if (!waitForTimeSync(5000)) {
+        LOG(LOG_WARN, "API", "Time sync not ready yet, continuing with HTTPS attempt");
+    }
+
     WiFiClientSecure client;
     client.setInsecure();  // TODO: přidat certifikát pro produkci
-    client.setTimeout(10);
+    client.setTimeout(API_TIMEOUT_MS);
 
     HTTPClient http;
     String url = apiUrl + endpoint;
-    http.begin(client, url);
+    if (!http.begin(client, url)) {
+        LOG(LOG_ERROR, "API", "Failed to initialize HTTPS request: %s", url.c_str());
+        return API_ERR_SERVER;
+    }
     http.addHeader("Content-Type", "application/json");
     http.addHeader("X-Api-Token", apiToken);
     http.setTimeout(API_TIMEOUT_MS);
