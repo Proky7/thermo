@@ -23,9 +23,13 @@ def post_measurements(
 ):
     ts = batch.ts or datetime.now(timezone.utc)
 
+    logger.info(f"Measurements from {batch.unit_name} ({batch.unit_mac}), "
+                f"{len(batch.readings)} readings")
+
     # Upsert unit
     unit = db.query(Unit).filter_by(mac=batch.unit_mac).first()
     if not unit:
+        logger.info(f"New unit registered: {batch.unit_name} ({batch.unit_mac})")
         unit = Unit(mac=batch.unit_mac, name=batch.unit_name)
         db.add(unit)
         db.flush()
@@ -42,9 +46,16 @@ def post_measurements(
             unit_id=unit.id, rom_id=r.rom_id
         ).first()
 
-        if not sensor or not sensor.name:
+        if not sensor:
+            # Nový senzor — zaregistruj do DB bez jména
+            sensor = Sensor(unit_id=unit.id, rom_id=r.rom_id)
+            db.add(sensor)
+            db.flush()
+            logger.info(f"New sensor registered: {r.rom_id} on unit {batch.unit_name}")
+
+        if not sensor.name:
             skipped += 1
-            logger.debug(f"Skipping unnamed sensor {r.rom_id}")
+            logger.info(f"Skipping unnamed sensor {r.rom_id} on {batch.unit_name}")
             continue
 
         sensor.last_seen = ts
@@ -64,6 +75,7 @@ def post_measurements(
 
     db.commit()
 
+    logger.info(f"Result: accepted={len(points)}, skipped={skipped}")
     return {
         "accepted": len(points),
         "skipped":  skipped,
