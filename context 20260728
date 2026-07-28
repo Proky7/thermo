@@ -1,0 +1,369 @@
+Tady je kontext projektu:
+
+THERMO — Kontext projektu
+
+Exportováno pro pokračování vývoje v nové konverzaci
+
+🎯 Cíl projektu
+
+Systém pro měření teplot domácího topného systému.
+
+ESP32/ESP8266 — sběr dat z DS18B20 senzorů, odesílání na API
+thermo-api — FastAPI backend v k3s clusteru
+MariaDB — registr jednotek a senzorů (Synology NAS, databáze HomeSys)
+InfluxDB — ukládání měření (bucket teploty)
+Grafana — vizualizace
+🏗 Architektura
+ESP32/ESP8266
+  → HTTPS → thermo-api.p7d.cz
+    → MariaDB (HomeSys na Synology 192.168.5.66)
+    → InfluxDB (influxdb-svc.default.svc.cluster.local:8086, org HomeSys, bucket teploty)
+🌐 API — thermo-api
+
+Repozitář: https://github.com/Proky7/thermo (veřejný)
+Deployment: ArgoCD z homelab-gitops, namespace thermo
+URL: https://thermo-api.p7d.cz
+Autentizace: Header X-Api-Token: <token>
+
+Endpointy
+Endpoint	Metoda	Popis
+/health	GET	Health check
+/api/v1/measurements	POST	Příjem měření z ESP
+/api/v1/sensors	POST	Announce/pojmenování senzoru
+/api/v1/sensors/{unit_mac}	GET	Seznam senzorů jednotky
+/api/v1/sensors/{unit_mac}/{rom_id}	PATCH	Přejmenování senzoru
+/api/v1/logs	POST	Příjem logů z ESP
+POST /api/v1/measurements
+json
+{
+  "unit_mac": "AA:BB:CC:DD:EE:FF",
+  "unit_name": "Kotelna",
+  "fw_version": "0.1.0",
+  "readings": [
+    {"rom_id": "28FF1234ABCD0000", "value": 42.5}
+  ]
+}
+
+Odpověď: {"accepted": 1, "skipped": 0, "ts": "..."}
+
+Senzory bez jména → skipped (neodesílají se do InfluxDB)
+Nová jednotka/senzor → automaticky zaregistrována do MariaDB
+POST /api/v1/sensors
+json
+{
+  "unit_mac": "AA:BB:CC:DD:EE:FF",
+  "unit_name": "Kotelna",
+  "rom_id": "28FF1234ABCD0000",
+  "name": "Bojler horni"
+}
+GET /api/v1/sensors/{unit_mac}
+json
+{
+  "sensors": [
+    {"rom_id": "28FF1234ABCD0000", "name": "Bojler horni"},
+    {"rom_id": "28FF5678EFGH0000", "name": null}
+  ]
+}
+POST /api/v1/logs
+json
+{
+  "unit_mac": "AA:BB:CC:DD:EE:FF",
+  "unit_name": "Kotelna",
+  "entries": [
+    {"level": "WARN", "message": "SENSOR: Sensor 28FF... missing", "ts": null}
+  ]
+}
+💾 MariaDB schéma (databáze HomeSys)
+sql
+CREATE TABLE thermo_units (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    mac         VARCHAR(17) NOT NULL UNIQUE,
+    name        VARCHAR(64),
+    fw_version  VARCHAR(32),
+    last_seen   DATETIME,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE thermo_sensors (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    unit_id     INT NOT NULL,
+    rom_id      VARCHAR(32) NOT NULL,
+    name        VARCHAR(64),
+    last_seen   DATETIME,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (unit_id) REFERENCES thermo_units(id),
+    UNIQUE KEY uq_unit_sensor (unit_id, rom_id)
+);
+
+CREATE TABLE thermo_logs (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    unit_id     INT,
+    level       ENUM('DEBUG','INFO','WARN','ERROR','CRITICAL'),
+    message     TEXT,
+    ts          DATETIME NOT NULL,
+    created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_unit_ts (unit_id, ts)
+);
+📦 thermo-api struktura
+thermo-api/
+├── app/
+│   ├── main.py              ← FastAPI app, startup, create_all tabulek
+│   ├── config.py            ← pydantic-settings, case_sensitive=False
+│   ├── database.py          ← MariaDB SQLAlchemy + InfluxDB write_api
+│   ├── models.py            ← Unit, Sensor, Log (thermo_units, thermo_sensors, thermo_logs)
+│   ├── schemas.py           ← Pydantic schémata
+│   └── routers/
+│       ├── measurements.py  ← POST /api/v1/measurements
+│       ├── sensors.py       ← GET/POST/PATCH /api/v1/sensors
+│       └── logs.py          ← POST /api/v1/logs
+├── k8s/
+│   ├── deployment.yaml
+│   ├── ingress.yaml
+│   ├── namespace.yaml
+│   ├── service.yaml
+│   └── secrets/
+│       └── thermo-secrets.enc.yaml  ← SOPS zašifrovaný
+├── Dockerfile
+├── requirements.txt
+└── .github/workflows/docker-build.yml
+config.py klíčové nastavení
+python
+class Settings(BaseSettings):
+    db_host: str
+    db_port: int = 3306
+    db_name: str = "HomeSys"
+    db_user: str
+    db_password: str
+    influx_url: str
+    influx_org: str = "HomeSys"
+    influx_bucket: str = "teploty"
+    INFLUX_TOKEN: str = ""     # velká písmena — z influx-thermo-token secret
+    api_token: str
+    log_level: str = "INFO"
+
+    class Config:
+        case_sensitive = False
+deployment.yaml klíčové části
+yaml
+envFrom:
+  - secretRef:
+      name: thermo-api-secret    # db_password, api_token
+env:
+  - name: INFLUX_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: influx-thermo-token   # generován PostSync Jobem InfluxDB
+        key: token
+  - name: INFLUX_URL
+    value: "http://influxdb-svc.default.svc.cluster.local:8086"
+  - name: INFLUX_ORG
+    value: "HomeSys"
+  - name: INFLUX_BUCKET
+    value: "teploty"
+  - name: DB_HOST
+    value: "192.168.5.66"
+  - name: DB_NAME
+    value: "HomeSys"
+  - name: DB_USER
+    value: "thermo"
+InfluxDB measurement struktura
+measurement: "temperature"
+tags:
+  unit_id:     poslední 6 znaků MAC ("6B:BC")
+  unit_name:   "Kotelna"
+  sensor_id:   ROM ID "28FF1234ABCD0000"
+  sensor_name: "Bojler horni"
+fields:
+  value: float (°C)
+🔧 ESP32 firmware
+
+Repozitář: https://github.com/Proky7/thermo/tree/main/thermo-esp32
+
+Struktura
+src/
+├── main.cpp
+├── config.h/.cpp         ← konstanty, globální proměnné, NVS load/save
+├── logger.h/.cpp         ← RAM buffer 15 WARN+, Serial, odesílání na API
+├── wifi_manager.h/.cpp   ← AP+STA, NTP, retry
+├── sensor_manager.h/.cpp ← DS18B20 OneWire async, buffer 50 měření, NVS jména
+├── api_client.h/.cpp     ← HTTPS POST na thermo-api, WiFiClientSecure
+├── sensor_sync.h/.cpp    ← stahování jmen z API každých 5 minut
+├── web_server.h/.cpp     ← AsyncWebServer endpointy
+└── web_ui.h/.cpp         ← HTML/CSS/JS (PROGMEM)
+config.h klíčové konstanty
+cpp
+#define FW_VERSION          "0.1.0"
+#define PIN_ONEWIRE         4       // GPIO4
+#define PIN_DEBUG_ENABLE    33      // zkratovat na GND = DEBUG
+#define AP_SSID_PREFIX      "THERMO-"
+#define AP_PASSWORD         "thermo123"
+#define SENSOR_MAX_COUNT    32
+#define SENSOR_INTERVAL_MS  10000   // měření každých 10s
+#define SENSOR_MISSING_WARN 5
+#define SENSOR_BUFFER_SIZE  50      // buffer při výpadku API
+#define SENSOR_SYNC_INTERVAL_MS 300000  // sync jmen každých 5 min
+#define LOG_BUFFER_SIZE     15      // WARN+ v RAM
+#define LOG_SEND_INTERVAL_MS 60000
+#define NVS_WIFI_NS         "wifi"
+#define NVS_CFG_NS          "cfg"
+#define NVS_SENSORS_NS      "sensors"
+Globální proměnné (config.cpp)
+cpp
+String unitName  = "";   // z NVS, nastavuje uživatel ve web UI
+String unitMac   = "";   // automaticky z WiFi.macAddress()
+String apiUrl    = "";   // z NVS, nastavuje uživatel ve web UI
+String apiToken  = "";   // z NVS, nastavuje uživatel ve web UI
+bool   debugMode = false; // z GPIO 33 jumper
+NVS namespaces
+"wifi"    → ssid, pass
+"cfg"     → name, api_url, api_token
+"sensors" → {romId: name} cache z API
+Web UI endpointy (ESP)
+GET  /              → HTML stránka
+GET  /api/status    → stav + teploty + wifi
+GET  /api/config    → name, api_url (bez tokenu)
+POST /api/config    → uložení name, api_url, api_token
+POST /api/wifi      → uložení WiFi přihlašovacích údajů
+GET  /api/sensors   → seznam senzorů + teploty + jména
+POST /api/sensors   → pojmenování senzoru (+ okamžitý announce na API)
+GET  /api/scan      → scan WiFi sítí
+GET  /api/logs      → posledních 15 WARN+ logů
+Logika měření
+Async stavový automat: IDLE → REQUESTED → READING → IDLE
+750ms konverze bez blokování
+Senzor chybí 1-4× → LOG_INFO
+Senzor chybí 5×+ → LOG_WARN
+Senzor se vrátí → LOG_INFO "recovered"
+Kruhový buffer 50 měření — při výpadku API odesílá zpětně
+Sync názvů senzorů
+Při startu → okamžitě
+Každých 5 minut → pravidelně
+Po pojmenování ve web UI → okamžitě + resetuje timer
+Po reconnectu WiFi → okamžitě
+Unnamed senzory → announce na API (bez jména)
+platformio.ini (ESP32)
+ini
+[env:esp32dev]
+platform = espressif32
+board = esp32dev
+framework = arduino
+monitor_speed = 115200
+board_build.partitions = min_spiffs.csv
+build_flags =
+    -D CONFIG_ASYNC_TCP_USE_WDT=0
+lib_deps =
+    https://github.com/mathieucarbou/AsyncTCP.git
+    https://github.com/mathieucarbou/ESPAsyncWebServer.git
+    bblanchon/ArduinoJson @ ^7.0.0
+    paulstoffregen/OneWire @ ^2.3.7
+    milesburton/DallasTemperature @ ^3.11.0
+🔧 ESP8266 firmware
+
+Repozitář: https://github.com/Proky7/thermo/tree/main/thermo-esp8266
+
+Rozdíly oproti ESP32
+Bez measurement bufferu — best effort odesílání
+LittleFS místo NVS Preferences
+AP bez hesla
+API token + URL v config.h jako výchozí hodnoty (přepsatelné z web UI)
+Log buffer 10 záznamů (WARN+)
+BearSSL::WiFiClientSecure místo WiFiClientSecure
+ESP8266HTTPClient místo HTTPClient
+yield() v loop místo delay(10)
+config.h klíčové konstanty (ESP8266)
+cpp
+#define FW_VERSION          "0.1.0-8266"
+#define DEFAULT_API_URL     "https://thermo-api.p7d.cz"
+#define DEFAULT_API_TOKEN   "NahodnyApiKlic159753"
+#define PIN_ONEWIRE         4    // D2 na ESP8266MOD
+#define PIN_DEBUG_ENABLE    14   // D5 na ESP8266MOD
+#define PIN_LEVEL_RX        12   // D6 — level konverter (budoucí použití)
+#define PIN_LEVEL_TX        13   // D7 — level konverter (budoucí použití)
+#define SENSOR_MAX_COUNT    16
+#define SENSOR_INTERVAL_MS  10000
+#define SENSOR_MISSING_WARN 5
+#define LOG_BUFFER_SIZE     10
+#define LOG_SEND_INTERVAL_MS 60000
+#define SENSOR_SYNC_INTERVAL_MS 300000
+#define CFG_FILE            "/config.json"
+#define WIFI_FILE           "/wifi.json"
+#define SENSORS_FILE        "/sensors.json"
+platformio.ini (ESP8266)
+ini
+[env:esp8266]
+platform = espressif8266
+board = esp12e
+framework = arduino
+monitor_speed = 115200
+board_build.filesystem = littlefs
+build_flags =
+    -D CONFIG_ASYNC_TCP_USE_WDT=0
+lib_deps =
+    https://github.com/me-no-dev/ESPAsyncTCP.git
+    https://github.com/me-no-dev/ESPAsyncWebServer.git
+    bblanchon/ArduinoJson @ ^7.0.0
+    paulstoffregen/OneWire @ ^2.3.7
+    milesburton/DallasTemperature @ ^3.11.0
+LittleFS soubory
+/config.json  → {"name":"...","api_url":"...","api_token":"..."}
+/wifi.json    → {"ssid":"...","pass":"..."}
+/sensors.json → {"28FF1234...":"Bojler horni", ...}
+🏠 k3s infrastruktura
+
+Homelab-gitops repozitář: git@github.com:Proky7/homelab-gitops.git
+ArgoCD pattern: App-of-Apps
+SOPS encryption: Age klíč age17mu4gj9g8yjl68s9u3gjrhmk8s4xlv6kdc6xzhtv0x7px0chuv7smu5n36
+
+Namespace struktura
+default       ← InfluxDB, Loki, Mosquitto
+monitoring    ← Grafana, Prometheus
+thermo        ← thermo-api
+argocd        ← ArgoCD
+InfluxDB
+Deployment: aplications/influxdb/influxdb-app.yaml
+PostSync Job: generuje tokeny dynamicky, ukládá jako K8s Secrets
+influx-thermo-token v namespace thermo (write do bucketu teploty)
+influx-grafana-token v namespace monitoring (read všech bucketů)
+Buckety: teploty (měření teplot), elektrika (budoucí použití)
+Org: HomeSys
+CoreDNS custom
+yaml
+# infrastructure/coredns-custom/coredns-custom.yaml
+p7d.cz:53 {
+  hosts {
+    192.168.4.50 thermo-api.p7d.cz
+    192.168.4.50 influxdb.p7d.cz
+    192.168.4.50 argocd.p7d.cz
+    192.168.4.50 grafana.p7d.cz
+    fallthrough
+  }
+  forward . /etc/resolv.conf
+}
+ArgoCD aplikace struktura
+clusters/homelab/root-app.yaml → APP/apps.yaml (include: apps.yaml only)
+APP/apps.yaml → thermo-api, thermo-api-secrets
+aplications/ → influxdb, grafana, loki, mosquitto, prometheus, ...
+infrastructure/ → metallb, ingress-nginx, cert-manager, coredns-custom, ...
+⚠️ Známé problémy a řešení
+InfluxDB token problém
+
+InfluxDB OSS nepodporuje vlastní tokeny — vždy generuje vlastní. Proto PostSync Job generuje tokeny a ukládá je jako K8s Secrets. thermo-api deployment čte INFLUX_TOKEN z influx-thermo-token secretu (ne z thermo-api-secret).
+
+CoreDNS split-horizon DNS
+
+cert-manager dělá self-check DNS zevnitř clusteru. Pro nové subdomény p7d.cz musí být přidán záznam do CoreDNS custom ConfigMap, jinak certifikát nelze vydat.
+
+MAC adresa formát
+
+ESP generuje MAC ve formátu AA:BB:CC:DD:EE:FF (velká písmena, dvojtečky). API endpoint /api/v1/sensors/{unit_mac} musí dostat přesně tento formát.
+
+ESP8266 AP SSID
+
+Při přejmenování jednotky se AP SSID aktualizuje automaticky v configSave() pomocí #ifdef ESP8266 / #elif defined(ESP32).
+
+🔜 Plánované rozšíření
+Loki integrace pro centrální logy (zatím jen /api/v1/logs endpoint)
+ESP8266 level konverter na D6/D7 (měření výšky vody v dešťovce)
+Dynamické API tokeny per ESP (každé ESP má vlastní token)
+OTA update firmware
+Grafana dashboardy pro každou ESP jednotku
